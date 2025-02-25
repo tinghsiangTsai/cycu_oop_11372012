@@ -1,7 +1,7 @@
 import math
 radius = 5
 volume = (4/3) * math.pi * radius**3
-print(f"The volume of the sphere with radius {radius} cm is {volume} cubic centimeters.")
+print(f"第一題的半徑是 {radius} cm，球體積是 {volume}.")
 
 import math
 
