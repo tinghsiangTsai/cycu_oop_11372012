@@ -76,36 +76,4 @@
 20241203,USD,本行買入,32.14000,32.49000,32.46500,32.38200,32.29000,32.20400,32.10000,32.01700,31.93000,本行賣出,32.81000,32.59000,32.57100,32.49500,32.41500,32.33900,32.25000,32.17900,32.10500,
 20241202,USD,本行買入,32.20000,32.55000,32.52400,32.45000,32.35500,32.25500,32.16800,32.06800,31.98400,本行賣出,32.87000,32.65000,32.63000,32.56200,32.47800,32.38700,32.31400,32.22700,32.15000,
 
-import pandas as pd
-import matplotlib.pyplot as plt
 
-# 讀取 CSV 檔案
-file_path = r'c:/Users/User/Desktop/cycu_oop_11372012/ExchangeRate@202503251848.csv'
-data = pd.read_csv(file_path)
-
-# 過濾需要的欄位
-data_filtered = data[['資料日期', '現金', '匯率.1']].copy()  # '匯率.1' 假設為現金(賣出)欄位
-data_filtered.columns = ['資料日期', '現金_買入', '現金_賣出']
-
-# 將資料日期轉換為日期格式
-data_filtered['資料日期'] = pd.to_datetime(data_filtered['資料日期'], format='%Y%m%d')
-
-# 過濾日期範圍
-data_filtered = data_filtered[(data_filtered['資料日期'] >= '2024-12-02') & (data_filtered['資料日期'] <= '2025-03-25')]
-
-# 繪製圖表
-plt.figure(figsize=(12, 6))
-plt.plot(data_filtered['資料日期'], data_filtered['現金_買入'], marker='o', label='現金 (買入)', color='blue')
-plt.plot(data_filtered['資料日期'], data_filtered['現金_賣出'], marker='o', label='現金 (賣出)', color='red')
-
-# 設定圖表標題與軸標籤
-plt.title('現金 (買入) 與 現金 (賣出) 匯率走勢', fontsize=16)
-plt.xlabel('資料日期', fontsize=12)
-plt.ylabel('匯率', fontsize=12)
-plt.grid(True)
-plt.legend()
-plt.xticks(rotation=45)
-
-# 顯示圖表
-plt.tight_layout()
-plt.show()
