@@ -1,53 +1,69 @@
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+# %% 公車站點爬蟲（修正亂碼：使用 utf-8-sig 編碼）
 import csv
+import time
+import os
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
 
-def fetch_bus_route_info(route_id: str, output_csv: str = "bus_route_info.csv"):
+def scrape_bus_stops(route_id: str, output_file: str):
     # 建立目標網址
-    url = f"https://ebus.gov.taipei/Route/StopsOfRoute?routeid={route_id}"
+    target_url = f"https://ebus.gov.taipei/Route/StopsOfRoute?routeid={route_id}"
+    print(f"🔗 正在爬取：{target_url}")
 
-    # 透過 Playwright 抓取網頁
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(url)
-        page.wait_for_timeout(3000)  # 等待動態資料載入
-        html_content = page.content()
-        browser.close()
+    # 設定瀏覽器為無頭模式（不開啟視窗）
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920x1080")
 
-    # 解析 HTML
-    soup = BeautifulSoup(html_content, "html.parser")
-    bus_stops = []
+    # 啟動 Chrome 瀏覽器
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.get(target_url)
+    time.sleep(3)  # 等待 JavaScript 載入完成
+    html = driver.page_source
+    driver.quit()
 
-    stop_elements = soup.find_all("a", class_="auto-list-link auto-list-stationlist-link")
-    for stop in stop_elements:
-        stop_data = stop.find("span", class_="auto-list auto-list-stationlist")
-        if stop_data:
-            arrival_info = stop_data.find("span", class_="auto-list-stationlist-position auto-list-stationlist-position-time")
-            stop_number = stop_data.find("span", class_="auto-list-stationlist-number")
-            stop_name = stop_data.find("span", class_="auto-list-stationlist-place")
-            stop_id_tag = stop_data.find("input", {"id": "item_UniStopId"})
-            latitude_tag = stop_data.find("input", {"id": "item_Latitude"})
-            longitude_tag = stop_data.find("input", {"id": "item_Longitude"})
+    # 使用 BeautifulSoup 解析 HTML
+    soup = BeautifulSoup(html, "html.parser")
+    stops = soup.find_all("a", class_="auto-list-link auto-list-stationlist-link")
 
-            # 將資訊彙整進列表
-            bus_stops.append([
-                arrival_info.text.strip() if arrival_info else "",
-                stop_number.text.strip() if stop_number else "",
-                stop_name.text.strip() if stop_name else "",
-                stop_id_tag["value"] if stop_id_tag else "",
-                latitude_tag["value"] if latitude_tag else "",
-                longitude_tag["value"] if longitude_tag else ""
-            ])
+    # 確保資料夾存在
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
-    # 輸出 CSV
-    with open(output_csv, "w", encoding="utf-8-sig", newline="") as file:
+    # 儲存為 UTF-8 with BOM，讓 Excel 不會出現亂碼
+    with open(output_file, mode="w", encoding="utf-8-sig", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["arrival_info", "stop_number", "stop_name", "stop_id", "latitude", "longitude"])
-        writer.writerows(bus_stops)
 
-    print(f"✅ 公車路線資料已儲存到：{output_csv}")
+        for stop in stops:
+            span = stop.find("span", class_="auto-list auto-list-stationlist")
+            if span:
+                arrival = span.find("span", class_="auto-list-stationlist-position auto-list-stationlist-position-time")
+                number = span.find("span", class_="auto-list-stationlist-number")
+                name = span.find("span", class_="auto-list-stationlist-place")
+                stop_id = span.find("input", id="item_UniStopId")
+                lat = span.find("input", id="item_Latitude")
+                lon = span.find("input", id="item_Longitude")
 
-# ✅ 執行測試（可換其他路線代碼）
+                row = [
+                    arrival.text.strip() if arrival else "無資料",
+                    number.text.strip() if number else "",
+                    name.text.strip() if name else "",
+                    stop_id["value"] if stop_id else "",
+                    lat["value"] if lat else "",
+                    lon["value"] if lon else ""
+                ]
+                writer.writerow(row)
+
+    print(f"✅ 完成爬取！資料已儲存至：\n📄 {os.path.abspath(output_file)}")
+
+# === 主程式執行區塊 ===
 if __name__ == "__main__":
-    fetch_bus_route_info("0100000A00", "bus_0100000A00.csv")
+    route_input = input("請輸入公車代碼（預設：0100000A00）：").strip() or "0100000A00"
+
+    # ✅ 設定明確儲存路徑
+    output_path = "C:/Users/鼎翔/Desktop/cycu_oop_11372012/20250415/bus_stops.csv"
+
+    # ✅ 執行爬蟲
+    scrape_bus_stops(route_id=route_input, output_file=output_path)
