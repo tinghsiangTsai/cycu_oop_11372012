@@ -1,14 +1,18 @@
-# %% 公車爬蟲主程式（完整版 + 中文顯示修正）
+# %% 公車爬蟲主程式（支援中文輸入 + 錯誤處理 + 終端顯示）
 import csv
 import os
 import time
+import urllib.parse
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 
 def scrape_bus_stops(route_id: str, output_file: str):
+    # ✅ 中文 route id 編碼（處理中文字）
+    encoded_route_id = urllib.parse.quote(route_id, safe="")
+
     # 建立目標網址
-    url = f"https://ebus.gov.taipei/Route/StopsOfRoute?routeid={route_id}"
+    url = f"https://ebus.gov.taipei/Route/StopsOfRoute?routeid={encoded_route_id}"
     print(f"\n🔗 正在爬取：{url}")
 
     # 設定瀏覽器為無頭模式
@@ -28,6 +32,14 @@ def scrape_bus_stops(route_id: str, output_file: str):
     soup = BeautifulSoup(html, "html.parser")
     stops = soup.find_all("a", class_="auto-list-link auto-list-stationlist-link")
 
+    # ✅ 若無資料，給予提示
+    if not stops:
+        print("⚠️ 無法取得站點資訊，可能原因：")
+        print("  🔹 routeid 輸入錯誤或不存在")
+        print("  🔹 不是台北市 eBus 系統的對應代碼")
+        print("請改用有效的公車代碼，例如：0100000A00 或 1818(正確代碼)")
+        return
+
     # 建立儲存資料夾
     output_dir = os.path.dirname(output_file)
     if output_dir and not os.path.exists(output_dir):
@@ -42,7 +54,6 @@ def scrape_bus_stops(route_id: str, output_file: str):
         for stop in stops:
             span = stop.find("span", class_="auto-list auto-list-stationlist")
             if span:
-                # ✅ 抓取進站中 / 尚未發車 / 幾分鐘
                 arrival = (
                     span.find("span", class_="auto-list-stationlist-position auto-list-stationlist-position-time") or
                     span.find("span", class_="auto-list-stationlist-position auto-list-stationlist-position-now") or
@@ -63,18 +74,15 @@ def scrape_bus_stops(route_id: str, output_file: str):
                     lon["value"] if lon else ""
                 ]
                 
-                # ✅ 終端顯示
-                print(",".join(row))
-                
-                # ✅ 寫入 CSV
+                print(",".join(row))  # ✅ 終端同步顯示
                 writer.writerow(row)
 
     print(f"\n✅ 完成！資料已儲存至：\n📄 {os.path.abspath(output_file)}")
 
 # === 主程式入口 ===
 if __name__ == "__main__":
-    # 使用者輸入公車代碼（預設值）
-    route_input = input("請輸入公車代碼（預設：0100000A00）：").strip() or "0100000A00"
+    # 使用者輸入公車代碼（支援中文）
+    route_input = input("請輸入公車代碼（可含中文，例如 1818中壢→臺北）：").strip() or "0100000A00"
 
     # 自動偵測桌面路徑
     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
